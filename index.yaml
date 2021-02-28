@@ -3,6 +3,24 @@ entries:
   api-gateway:
   - apiVersion: v2
     appVersion: 1.0.1
+    created: "2021-02-28T16:49:44.433738089Z"
+    description: Microservices API Gateway based on Nginx
+    digest: b949505fd791eb6b72cd5b5757e4a61edfa064548463ea589cc4b8abc5fff882
+    keywords:
+    - api-gateway
+    - nginx
+    - microservices
+    kubeVersion: '>= 1.19.0'
+    maintainers:
+    - name: Riccardo Atzori
+      url: https://github.com/riccardotzr
+    name: api-gateway
+    type: application
+    urls:
+    - https://github.com/riccardotzr/helm-charts/releases/download/api-gateway-1.1.0/api-gateway-1.1.0.tgz
+    version: 1.1.0
+  - apiVersion: v2
+    appVersion: 1.0.1
     created: "2021-02-28T16:48:24.028420442Z"
     description: Microservices API Gateway based on Nginx
     digest: 8c228aecb921dc2d00bc82b9326060c1417475241afd34ecd8b97388c36f2740
@@ -19,4 +37,4 @@ entries:
     urls:
     - https://github.com/riccardotzr/helm-charts/releases/download/api-gateway-1.0.0/api-gateway-1.0.0.tgz
     version: 1.0.0
-generated: "2021-02-28T16:48:24.028470641Z"
+generated: "2021-02-28T16:49:44.433746489Z"
