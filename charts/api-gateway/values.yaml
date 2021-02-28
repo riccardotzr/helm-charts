@@ -1,0 +1,190 @@
+# Default values for api-gateway.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: riccardoatzori/api-gateway
+  pullPolicy: Always
+  tag: "1.0.1"
+
+dnsImage:
+  name: dnsmasq
+  repository: janeczku/go-dnsmasq
+  pullPolicy: Always
+  tag: release-1.0.7
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+volumeMounts:
+  - name: server
+    mountPath: /etc/nginx/conf.d
+    readOnly: true
+  - name: customization
+    mountPath: /etc/nginx/customization.d
+    readOnly: true
+  - name: location
+    mountPath: /etc/nginx/location.d
+    readOnly: false
+
+volumes:
+  - name: server
+    configName: api-gateway-server
+  - name: location
+    configName: api-gateway-location
+  - name: customization
+    configName: api-gateway-customization
+
+serverConfig:
+    maps.conf: |  
+      include /etc/nginx/customization.d/maps-http-accept-extension.conf;
+      include /etc/nginx/customization.d/maps-original-request-uri.conf;
+      include /etc/nginx/customization.d/maps-proxyName.conf;
+      include /etc/nginx/customization.d/maps-proxyUrl.conf;
+      include /etc/nginx/customization.d/maps-proxyVersion.conf;
+      include /etc/nginx/customization.d/maps-proxyPrefix.conf;
+      include /etc/nginx/customization.d/maps-type.conf;
+    resolver.conf: |
+      resolver 127.0.0.1 ipv6=off;
+      set_real_ip_from 127.0.0.1;         # trust localhost
+      set_real_ip_from unix:;             # trust local unix socket
+      set_real_ip_from 10.0.0.0/8;        # trust class A private networks
+      set_real_ip_from 172.16.0.0/12;     # trust class B private networks
+      set_real_ip_from 192.168.0.0/16;    # trust class C private networks
+      real_ip_header X-Forwarded-For;
+    upstream.conf: |
+      upstream unauthorized { server unix:/tmp/unauthorized.sock; }
+      upstream not_found { server unix:/tmp/not_found.sock; }
+
+locationConfig:
+  server-conf.conf: |
+    include /etc/nginx/customization.d/default-error-page.conf;
+
+    location / {
+      include /etc/nginx/customization.d/header-debug.conf;
+      include /etc/nginx/set_proxy_headers.conf;
+    
+      proxy_pass http://$proxy_name$proxy_prefix$proxy_version$proxy_url;
+    }
+      
+customizationConfig:
+  default-error-page.conf: | 
+    error_page 404 = /error404.$extension_by_http_accept;
+    error_page 401 = /error401.$extension_by_http_accept;
+
+    location /error404.json {
+      include /etc/nginx/customization.d/header-debug.conf;
+      return 404 $content_404;
+    }
+
+    location /error404.html {
+      include /etc/nginx/customization.d/header-debug.conf;
+      return 404 $content_404;
+    }
+
+    location /error401.json {
+      include /etc/nginx/customization.d/header-debug.conf;
+      return 401 $content_401;
+    }
+
+    location /error401.html {
+      include /etc/nginx/customization.d/header-debug.conf;
+      return 401 $content_401;
+    }
+  header-debug.conf: |
+    add_header 'X-Debug-Proxy-Name'     $original_request_method-$proxy_name    always;
+    add_header 'X-Debug-Proxy-Version'  $original_request_method-$proxy_version always;
+    add_header 'X-Debug-Proxy-Prefix'   $original_request_method-$proxy_prefix  always;
+    add_header 'X-Debug-Proxy-URL'      $original_request_method-$proxy_url     always;
+  maps-http-accept-extension.conf: |
+    map $http_accept $extension_by_http_accept {
+      default "html";
+      "~json" "json";
+    }
+  maps-original-request-uri.conf: |
+    map $original_request_uri$is_args$args $original_request_uri$is_args$args {
+      default "$original_request_uri$is_args$args";
+      "~^(?<path>.*)\?" "$path";
+    }
+  maps-proxyName.conf: |
+    map $original_request_method-$original_request_uri $proxy_name {
+      default "not_found";
+    }
+  maps-proxyPrefix.conf: |
+    map $original_request_method-$original_request_uri $proxy_prefix {
+      default "/api/";   
+    }
+  maps-proxyUrl.conf: |
+    map $original_request_method-$original_request_uri$is_args$args $proxy_url {
+      default $original_request_uri$is_args$args;
+
+      "~^\w+-/v[0-9]+(?<path>[/?].*|$)$" "$path";
+    }
+  maps-proxyVersion.conf: |
+    map $original_request_method-$original_request_uri $proxy_version {
+      default "v1";
+    }
+  maps-type.conf: |
+    map $http_accept $type {
+      default "text/html";
+      "~json" "application/json";
+    }
+
+dnsArgs:
+  - '--listen'
+  - '127.0.0.1:53'
+  - '--default-resolver'
+  - '--enable-search'
+  - '--hostsfile=/etc/hosts'
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths: []
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80

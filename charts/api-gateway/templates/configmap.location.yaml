@@ -1,0 +1,11 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "api-gateway.fullname" . }}-location
+  labels:
+    {{- include "api-gateway.labels" . | nindent 4 }}
+data:
+{{- range $path, $config := .Values.locationConfig }}
+  {{ $path }}: |
+{{ $config | indent 4 -}}
+{{- end }}
